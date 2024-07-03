@@ -545,7 +545,7 @@ class Polyhedron:
             
         def obj_callback(model, where):
             if where == gp.GRB.Callback.SIMPLEX:
-                x_optimal = model.cbGet(self.x)
+                x_optimal = model.cbGet(gp.GRB.Callback.SOL)
                 if x_optimal != init_x:
                     model.terminate() 
 
