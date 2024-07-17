@@ -525,9 +525,8 @@ class Polyhedron:
             self.B = np.concatenate((self.B, np.expand_dims(row, axis=0)))
             self.d = np.concatenate((self.d, np.array([rhs])))
 
-    def second_vert(self, init_x, c=None, verbose=False, record_objs=True, method='primal_simplex'):
+    def second_vert(self, init_x, init_obj, c=None, verbose=False, record_objs=True, method='primal_simplex'):
         ######try to find a way for this to not restart (if doesn't work then try XPRESS)
-        max_its = 1
         if c is None:
             assert self.c is not None, 'Need objective function'
         c = self.c
@@ -537,62 +536,30 @@ class Polyhedron:
         self.set_objective(c)
         self.set_method(method)
         self.set_solution(init_x)
-        # for i in range(self.n):
-        #     self.x[i].lb = init_x[i]
-        #     self.x[i].ub = init_x[i]
-        # self.model.Params.IterationLimit = max_its #force the simplex method to terminate after 1 iteration
+        
         t0 = time.time()
             
         def obj_callback(model, where):
             if where == gp.GRB.Callback.SIMPLEX:
-                x_optimal = model.cbGet(gp.GRB.Callback.SOL)
-                if x_optimal != init_x:
+                obj = model.cbGet(gp.GRB.Callback.SPX_OBJVAL)
+                print(f'Objective Value: {obj}')
+                if obj != init_obj:
                     model.terminate() 
 
         self.model.optimize(obj_callback)
+        x_optimal = self.model.getAttr('x', self.x)
                 
-        # if record_objs:
-        #     self.model.optimize(obj_callback)
-        # else:
-        #     self.model.optimize()
-        # if self.model.status != gp.GRB.Status.OPTIMAL and self.model.status != gp.GRB.Status.ITERATION_LIMIT:
-        #     raise RuntimeError('Model failed to solve')
-            
-        # x_optimal = self.model.getAttr('x', self.x)   
-
-        # while x_optimal == init_x:
-        #     max_its = max_its+1
-
-        #     if c is None:
-        #         assert self.c is not None, 'Need objective function'
-        #     c = self.c
-         
-        #     if self.model is None:
-        #         self.build_gurobi_model(c=c)
-        #     self.set_objective(c)
-        #     self.set_method(method)
-        #     self.model.Params.IterationLimit = max_its #force the simplex method to terminate after 1 iteration
-        #     t0 = time.time()
-            
-        #     obj_values = []
-        #     iter_times = []
-        #     iter_counts = []
-        #     def obj_callback(model, where):
-        #         if where == gp.GRB.Callback.SIMPLEX:
-        #             obj = model.cbGet(gp.GRB.Callback.SPX_OBJVAL)
-        #             obj_values.append(obj)
-        #             iter_times.append(time.time() - t0)
-                
-        #             iter_count = model.cbGet(gp.GRB.Callback.SPX_ITRCNT)
-        #             iter_counts.append(iter_count)
-                
-        #     if record_objs:
-        #         self.model.optimize(obj_callback)
-        #     else:
-        #         self.model.optimize()
-        #     if self.model.status != gp.GRB.Status.OPTIMAL and self.model.status != gp.GRB.Status.ITERATION_LIMIT:
-        #         raise RuntimeError('Model failed to solve')
-            
-        #     x_optimal = self.model.getAttr('x', self.x)        
-        #     solve_time = time.time() - t0       
         return x_optimal
+
+    def compute_y(self, desc_dir):
+        y_pos = np.zeros(self.m_B)
+        y_neg = np.zeros(self.m_B)
+        Bx = self.B.dot(desc_dir)
+        for i in range(self.m_B):
+            if Bx[i] < 0:
+                y_neg[i] = -Bx[i]
+            else:
+                y_pos[i] = Bx[i]
+        
+        steepness = self.c.dot(desc_dir)
+        return y_pos,y_neg,steepness
