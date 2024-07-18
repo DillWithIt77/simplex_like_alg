@@ -469,12 +469,13 @@ class Polyhedron:
         for i in range(self.n):
             self.x[i].lb = -INF
             self.x[i].ub = INF
-        c_orig = np.copy(self.c)
-        self.set_objective(np.zeros(self.n))                  
-        self.model.optimize()
-        if self.model.status != gp.GRB.Status.OPTIMAL:
-            raise RuntimeError('Failed to set feasible solution.')                
-        self.set_objective(c_orig)
+        ###commented out so as to now change solution####
+        # c_orig = np.copy(self.c)
+        # self.set_objective(np.zeros(self.n))                  
+        # self.model.optimize()
+        # if self.model.status != gp.GRB.Status.OPTIMAL:
+        #     raise RuntimeError('Failed to set feasible solution.')                
+        # self.set_objective(c_orig)
         
                 
     # return normalized circuit given a circuit direction of P
@@ -525,7 +526,7 @@ class Polyhedron:
             self.B = np.concatenate((self.B, np.expand_dims(row, axis=0)))
             self.d = np.concatenate((self.d, np.array([rhs])))
 
-    def second_vert(self, init_x, init_obj, c=None, verbose=False, record_objs=True, method='primal_simplex'):
+    def second_vert(self, init_x, c=None, verbose=False, record_objs=True, method='primal_simplex'):
         ######try to find a way for this to not restart (if doesn't work then try XPRESS)
         if c is None:
             assert self.c is not None, 'Need objective function'
@@ -533,16 +534,17 @@ class Polyhedron:
          
         if self.model is None:
             self.build_gurobi_model(c=c)
+        self.set_solution(init_x)
         self.set_objective(c)
         self.set_method(method)
-        self.set_solution(init_x)
+        init_obj = self.model.getObjective().getValue()
         
         t0 = time.time()
             
         def obj_callback(model, where):
             if where == gp.GRB.Callback.SIMPLEX:
                 obj = model.cbGet(gp.GRB.Callback.SPX_OBJVAL)
-                print(f'Objective Value: {obj}')
+                # print(f'Objective Value: {obj}')
                 if obj != init_obj:
                     model.terminate() 
 
@@ -550,16 +552,3 @@ class Polyhedron:
         x_optimal = self.model.getAttr('x', self.x)
                 
         return x_optimal
-
-    def compute_y(self, desc_dir):
-        y_pos = np.zeros(self.m_B)
-        y_neg = np.zeros(self.m_B)
-        Bx = self.B.dot(desc_dir)
-        for i in range(self.m_B):
-            if Bx[i] < 0:
-                y_neg[i] = -Bx[i]
-            else:
-                y_pos[i] = Bx[i]
-        
-        steepness = self.c.dot(desc_dir)
-        return y_pos,y_neg,steepness

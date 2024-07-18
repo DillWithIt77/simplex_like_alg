@@ -184,22 +184,27 @@ class PolyhedralModel():
         for i in range(self.n):
             self.x[i].lb = -INF
             self.x[i].ub = INF
-        self.model.setObjective(gp.LinExpr(np.zeros(self.n), self.x))                
-        self.model.optimize()
-        if self.model.status != gp.GRB.Status.OPTIMAL:
-            raise RuntimeError('Failed to set solution for polyhedral model') 
+        ####commented out as to not change solution#####
+        # self.model.setObjective(gp.LinExpr(np.zeros(self.n), self.x))                
+        # self.model.optimize()
+        # if self.model.status != gp.GRB.Status.OPTIMAL:
+        #     raise RuntimeError('Failed to set solution for polyhedral model') 
             
-        self.set_objective(self.c)                
-        self.set_active_inds(self.active_inds)
-        self.set_method(self.method)
+        # self.set_objective(self.c)                
+        # self.set_active_inds(self.active_inds)
+        # self.set_method(self.method)
         #self.model.update()
         
                 
-    def compute_sd_direction(self, verbose=False):
+    def compute_sd_direction(self, verbose=False, **kwargs):
+        init_edge = kwargs.get('edge', np.zeros(self.n))
+
         flag = 1 if verbose else 0
         self.model.setParam(gp.GRB.Param.OutputFlag, flag)
         
         t0 = time.time()
+        if np.all(init_edge != 0):
+            self.model.set_solution(init_edge)
         self.model._phase1_time = None
         self.model._is_dualinf = True
         def dualinf_callback(model, where):
