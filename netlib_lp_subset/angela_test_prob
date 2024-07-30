@@ -1,0 +1,51 @@
+NAME          DIET
+ROWS
+ N  COST
+ G  CAL_MIN
+ L  CAL_MAX
+ G  PRO_MIN
+ L  PRO_MAX
+ G  FAT_MIN
+ L  FAT_MAX
+COLUMNS
+    x1         COST      0.05
+    x1         CAL_MIN   50
+    x1         CAL_MAX   50
+    x1         PRO_MIN   2
+    x1         PRO_MAX   2
+    x1         FAT_MIN   0.5
+    x1         FAT_MAX   0.5
+    x2         COST      0.2
+    x2         CAL_MIN   100
+    x2         CAL_MAX   100
+    x2         PRO_MIN   8
+    x2         PRO_MAX   8
+    x2         FAT_MIN   4
+    x2         FAT_MAX   4
+    x3         COST      0.3
+    x3         CAL_MIN   150
+    x3         CAL_MAX   150
+    x3         PRO_MIN   10
+    x3         PRO_MAX   10
+    x3         FAT_MIN   10
+    x3         FAT_MAX   10
+    x4         COST      0.1
+    x4         CAL_MIN   30
+    x4         CAL_MAX   30
+    x4         PRO_MIN   1
+    x4         PRO_MAX   1
+    x4         FAT_MIN   0
+    x4         FAT_MAX   0
+RHS
+    RHS        CAL_MIN   2000
+    RHS        CAL_MAX   2500
+    RHS        PRO_MIN   50
+    RHS        PRO_MAX   200
+    RHS        FAT_MIN   20
+    RHS        FAT_MAX   70
+BOUNDS
+ UP BOUND     x1         1e+30
+ UP BOUND     x2         1e+30
+ UP BOUND     x3         1e+30
+ UP BOUND     x4         1e+30
+ENDATA
