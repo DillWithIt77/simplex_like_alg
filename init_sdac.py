@@ -128,12 +128,18 @@ def new_sdac(mps_fn, results_dir, max_time, reset, sd_method):
     iter_times.append(t2 - t1)
 
     ####get edge for initial circuit direction here#########
-    x_feasible_2= P.second_vert(x_current, obj_value, verbose=False, record_objs=True)
-    init_edge = np.array(x_feasible_2) - np.array(x_current)
+    x_feasible_2= P.second_vert(x_current, obj_value, verbose=False)
+    edge = np.array(x_feasible_2) - np.array(x_current)
+    norm = np.linalg.norm(np.array(edge),1)
+    if norm != 0:
+      init_edge = edge/(norm)
+    else:
+      init_edge = edge
     ########################################################
 
     # compute steepest-descent direction
-    descent_direction, y_pos, y_neg, steepness, num_steps, solve_time, phase_times = pm.compute_sd_direction(edge=init_edge, verbose=verbose)
+    descent_direction, y_pos, y_neg, steepness, num_steps, solve_time, phase_times = pm.compute_sd_direction(edge = np.array(init_edge), verbose=verbose)
+    test_dir = descent_direction
     simplex_iters.append(num_steps)
     sub_times['solve'].append(solve_time)
     sub_times['phase_times'].append(phase_times)

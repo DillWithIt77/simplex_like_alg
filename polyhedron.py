@@ -276,10 +276,8 @@ class Polyhedron:
             self.B = np.concatenate((self.B, np.expand_dims(row, axis=0)))
             self.d = np.concatenate((self.d, np.array([rhs])))
 
-    def second_vert(self, init_x, c=None, verbose=False, method='primal_simplex'):
+    def second_vert(self, init_x, init_obj, c=None, verbose=False, method='primal_simplex'):
         ######try to find a way for this to not restart (if doesn't work then try XPRESS)
-        
-
         if c is None:
             c = self.c
         assert self.c is not None, 'Need objective function'
@@ -349,33 +347,36 @@ class Polyhedron:
         #     it_count += 1
 
         for i in range(self.n):
-            self.x[i].lb = init_x[i]
-            self.x[i].ub = init_x[i]
+            self.x[i].Start = init_x[i]
+
+        # for i in range(self.n):
+        #     self.x[i].lb = init_x[i]
+        #     self.x[i].ub = init_x[i]
         self.model.update()
             
-        self.model.optimize()
-        if self.model.status != gp.GRB.Status.OPTIMAL:
-            raise RuntimeError('Failed to find feasible solution.')
-        print('Feasible solution found with objective {}'.format(self.model.objVal))
-        init_obj = self.model.objVal
+        # self.model.optimize()
+        # if self.model.status != gp.GRB.Status.OPTIMAL:
+        #     raise RuntimeError('Failed to find feasible solution.')
+        # print('Feasible solution found with objective {}'.format(self.model.objVal))
+        # init_obj = self.model.objVal
 
-        # vbasis = self.model.getAttr(gp.GRB.Attr.VBasis)
-        # cbasis = self.model.getAttr(gp.GRB.Attr.CBasis)
+        # # vbasis = self.model.getAttr(gp.GRB.Attr.VBasis)
+        # # cbasis = self.model.getAttr(gp.GRB.Attr.CBasis)
 
-        if self.model.status == gp.GRB.Status.OPTIMAL:
-            for var in self.model.getVars():
-                var.Start = var.X
+        # if self.model.status == gp.GRB.Status.OPTIMAL:
+        #     for var in self.model.getVars():
+        #         var.Start = var.X
 
-        for i in range(self.n):
-            self.x[i].lb = -INF
-            self.x[i].ub = INF
+        # for i in range(self.n):
+        #     self.x[i].lb = -INF
+        #     self.x[i].ub = INF
 
-        # self.model.setAttr("VBasis", self.model.getVars(), vbasis)
-        # self. model.setAttr("CBasis", self.model.getConstrs(), cbasis)
+        # # self.model.setAttr("VBasis", self.model.getVars(), vbasis)
+        # # self. model.setAttr("CBasis", self.model.getConstrs(), cbasis)
 
-        self.set_objective(c)
-        self.set_method(method)
-        self.model.update()
+        # self.set_objective(c)
+        # self.set_method(method)
+        # self.model.update()
 
         # for i in range(len(init_x)):
         #     print(f'after set solution: {self.x[i].Start}')
@@ -390,8 +391,8 @@ class Polyhedron:
                 itcnt = model.cbGet(gp.GRB.Callback.SPX_ITRCNT)
                 # if prim_inf == 0.0 and itcnt > 0:
                 # if obj != init_obj and prim_inf == 0.0:
-                # if obj != init_obj:
-                if itcnt > 0:
+                if obj != init_obj and itcnt > 0 and prim_inf == 0.0:
+                # if itcnt > 0:
                     model.terminate() 
 
         # print(f'Solution Count: {self.model.SolCount}')
