@@ -23,6 +23,8 @@ class PolyhedralModel():
             self.x = []
             self.y_pos = []
             self.y_neg = []
+            self.x_pos = []
+            self.x_neg = []
             for i in range(self.n):
                 self.x.append(self.model.addVar(lb=-INF, ub=INF, name='x_{}'.format(i)))
             for i in range(self.m_B):
@@ -53,23 +55,25 @@ class PolyhedralModel():
             raise RuntimeError('Not yet implemented')
             
         self.model.update()
-        print('Polyhedral model built!')
-        # print("\nConstraints:")
-        # for constr in self.model.getConstrs():
-        #     print(f"{constr.ConstrName}: {self.model.getRow(constr)} {constr.Sense} {constr.RHS}")
-                
+        print('Polyhedral model built!')                
                 
     def set_objective(self, c):
         self.c = c
         self.model.setObjective(gp.LinExpr(c, self.x))
             
-    def set_active_inds(self, active_inds):
+    def set_active_inds(self, active_inds,**kwargs):
+        switch = kwargs.get('simp_switch', False)
         self.active_inds = active_inds
         for i in range(self.m_B):
             self.y_pos[i].lb = 0.0
             self.y_pos[i].ub = 1.0
+            self.y_neg[i].lb = 0.0
+            self.y_neg[i].ub = 1.0
         for i in self.active_inds:
             self.y_pos[i].ub = 0.0
+            if switch:
+                self.y_neg[i].ub = 0.0 
+
                 
     def set_method(self, method):
         self.method = method
@@ -83,6 +87,7 @@ class PolyhedralModel():
             self.x[i].ub = g[i]
         for i in range(self.m_B):
             self.y_pos[i].ub = 1.0
+            self.y_neg[i].ub = 1.0
             
         # solve the modified model to obtain desired solution    
         self.model.Params.method = 0
@@ -107,45 +112,44 @@ class PolyhedralModel():
     def compute_sd_direction(self, verbose=False, **kwargs):
         init_y_pos = kwargs.get('y_pos', None)
         init_y_neg = kwargs.get('y_neg', None)
+        init_edge = kwargs.get('edge', None)
+        trivial = kwargs.get('trivial', False)
+
+        warm_start_chck = kwargs.get('check', False)
 
         flag = 1 if verbose else 0
         self.model.setParam(gp.GRB.Param.OutputFlag, flag)
 
-        # if init_edge is not None:
-        #     i = 0
-        #     for var in self.model.getVars():
-        #         var.Start = init_edge[i]
-        #         i+=1
+        self.set_objective(self.c)
+        if trivial:
+            print('trivial warm start')
+            init_soln = np.append(np.append(np.zeros(self.n),init_y_pos),init_y_neg)
+            i = 0
+            for var in self.model.getVars():
+                var.Start = init_soln[i]
+                i +=1
+            self.model.update()
 
+        elif init_edge is not None and init_y_pos is not None and init_y_neg is not None:
+            print('standard form warm start')
+            init_soln = np.append(np.append(init_edge,init_y_pos),init_y_neg)
+            i = 0
+            for var in self.model.getVars():
+                var.Start = init_soln[i]
+                i +=1
+            self.model.update()
 
-        # for i in range(len(self.x)):
-        #     print(f'before set solution: {self.x[i].Start}')
-
-        if init_y_pos is not None and init_y_neg is not None:
-            # print('made through edge if check')
-            self.set_objective(self.c) 
-            # for i in range(self.n):
-            #     # self.x[i].Start = init_edge[i]
-            #     self.x[i].lb = init_edge[i]
-            #     self.x[i].ub = init_edge[i]
+        elif init_y_pos is not None and init_y_neg is not None:
+            print('other warm start')
+        
             for i in range(self.m_B):
                 self.y_pos[i].lb = init_y_pos[i]
                 self.y_pos[i].ub = init_y_pos[i]
                 self.y_neg[i].lb = init_y_neg[i]
                 self.y_neg[i].ub = init_y_neg[i]
             
-            # solve the modified model to obtain desired solution    
-            # self.model.Params.method = 0
             self.model.update()
-            # for var in self.model.getVars():
-            #     print(f"Before:{var.VarName} = {var.X}")
-            # print("\nConstraints:")
-            # for constr in self.model.getConstrs():
-            #     print(f"{constr.ConstrName}: {self.model.getRow(constr)} {constr.Sense} {constr.RHS}")
             self.model.optimize()
-
-            # for var in self.model.getVars():
-            #     print(f"After:{var.VarName} = {var.X}")
 
             if self.model.status != gp.GRB.Status.OPTIMAL:
                 print('Could not warm start with given edge')
@@ -163,28 +167,23 @@ class PolyhedralModel():
                 print("Model is feasible or optimization was successful.")
 
             if self.model.status == gp.GRB.Status.OPTIMAL:
-                # print('got optimal solution for init edge')
-                for var in self.model.getVars():
-                    var.Start = var.X
+                vbasis = self.model.getAttr(gp.GRB.Attr.VBasis)
+                cbasis = self.model.getAttr(gp.GRB.Attr.CBasis)
 
-            # for i in range(self.n):
-            #     self.x[i].lb = -INF
-            #     self.x[i].ub = INF
-            for i in range(self.m_B):
-                self.y_pos[i].lb = 0
-                self.y_pos[i].ub = 1
-                self.y_neg[i].lb = 0
-                self.y_neg[i].ub = 1
-
-            # self.set_active_inds(self.active_inds)
+            self.model.setAttr("VBasis", self.model.getVars(), vbasis)
+            self. model.setAttr("CBasis", self.model.getConstrs(), cbasis)
+            self.set_objective(self.c)
+            self.set_active_inds(self.active_inds)
             self.set_method(self.method)              
             self.model.update()
 
-        # for i in range(self.n):
-        #     print(f'after set solution: {self.x[i].Start}')
+        if warm_start_chck:
+            for var in self.model.getVars():
+                if var.Start != 0:
+                    print(var.Start)
         
         t0 = time.time()
-        self.model._phase1_time = None
+        self.model._phase1_time = 0 #None
         self.model._is_dualinf = True
         def dualinf_callback(model, where):
             if where == gp.GRB.Callback.SIMPLEX:
@@ -196,18 +195,10 @@ class PolyhedralModel():
         
         self.model.optimize(dualinf_callback)
         if self.model.status != gp.GRB.Status.OPTIMAL:
-            # Compute IIS to find violated constraints
-            self.model.computeIIS()
-            print("The following constraints are infeasible:")
-    
-            for constr in self.model.getConstrs():
-                if constr.IISConstr:
-                    print(f"Constraint {constr.ConstrName} is infeasible.")
             raise RuntimeError('Failed to find steepst-descent direction.')
         
         phase2_time = time.time() - self.model._phase1_time
         phase_times = (self.model._phase1_time, phase2_time)
-        # phase_times = 0
         g = self.model.getAttr('x', self.x)
         y_pos = self.model.getAttr('x', self.y_pos)
         y_neg = self.model.getAttr('x', self.y_neg)

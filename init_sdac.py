@@ -19,7 +19,7 @@ def old_sdac(mps_fn, results_dir, max_time, reset, sd_method):
     P = Polyhedron(B, d, A, b, c)
 
     print('Finding feasible solution...')
-    x_feasible = P.find_feasible_solution(verbose=False)
+    x_feasible, vbasis, cbasis = P.find_feasible_solution(verbose=False)
 
     x = x_feasible
     c=None
@@ -39,6 +39,7 @@ def old_sdac(mps_fn, results_dir, max_time, reset, sd_method):
     if save_first_steps:
       np.save('solutions/{}_0.npy'.format(problem_name), x_current)      
     active_inds = P.get_active_constraints(x_current)
+    # print(len(active_inds))
     
     pm = P.build_polyhedral_model(active_inds=active_inds, method=method)
 
@@ -61,6 +62,7 @@ def old_sdac(mps_fn, results_dir, max_time, reset, sd_method):
     t2 = time.time()
     iter_times.append(t2 - t1)
 
+
     # compute steepest-descent direction
     descent_direction, y_pos, y_neg, steepness, num_steps, solve_time, phase_times = pm.compute_sd_direction(verbose=verbose)
     simplex_iters.append(num_steps)
@@ -69,13 +71,14 @@ def old_sdac(mps_fn, results_dir, max_time, reset, sd_method):
     
     t3 = time.time()
     sub_times['sd'].append(t3 - t2)
+    return sub_times['sd'][-1], sub_times['solve'][-1], sub_times['phase_times'][-1]
 
-    return result(status=0, x=x_current, 
-                  obj=P.c.dot(x_current), n_iters=len(step_sizes),
-                  iter_times=iter_times, alg_type='steepest-descent',
-                  circuits=descent_circuits, steps=step_sizes,
-                  simplex_iters=simplex_iters, solve_times=sub_times['solve'],
-                  sub_times=sub_times, obj_values=obj_values)
+    # return result(status=0, x=x_current, 
+    #               obj=P.c.dot(x_current), n_iters=len(step_sizes),
+    #               iter_times=iter_times, alg_type='steepest-descent',
+    #               circuits=descent_circuits, steps=step_sizes,
+    #               simplex_iters=simplex_iters, solve_times=sub_times['solve'],
+    #               sub_times=sub_times, obj_values=obj_values)
 
 def new_sdac(mps_fn, results_dir, max_time, reset, sd_method):
     ### Build Initial Polyhedron from file
@@ -85,7 +88,7 @@ def new_sdac(mps_fn, results_dir, max_time, reset, sd_method):
     P = Polyhedron(B, d, A, b, c)
 
     print('Finding feasible solution...')
-    x_feasible = P.find_feasible_solution(verbose=False)
+    x_feasible,vbasis, cbasis = P.find_feasible_solution(verbose=False)
 
     x = x_feasible
     c=None
@@ -123,33 +126,64 @@ def new_sdac(mps_fn, results_dir, max_time, reset, sd_method):
     simplex_iters = []
     iteration = 0
     obj_value = P.c.dot(x_current)
+    num_dec_places = Polyhedron.num_aft_dec(obj_value)
     obj_values.append(obj_value)
     t2 = time.time()
     iter_times.append(t2 - t1)
 
     ####get edge for initial circuit direction here#########
-    x_feasible_2= P.second_vert(x_current, obj_value, verbose=False)
+    x_feasible_2= P.second_vert(x_current, obj_value, num_dec_places, verbose=False, vbasis = vbasis, cbasis = cbasis)
     edge = np.array(x_feasible_2) - np.array(x_current)
-    norm = np.linalg.norm(np.array(edge),1)
-    if norm != 0:
-      init_edge = edge/(norm)
-    else:
-      init_edge = edge
+    B_edge = np.dot(B,np.array(edge))
+    norm = np.linalg.norm(np.array(B_edge),1)
+    normed_B_edge = B_edge/(norm)
+    init_y_pos = []
+    init_y_neg = []
+    for entry in normed_B_edge:
+        if entry >= 0:
+            init_y_pos.append(entry)
+            init_y_neg.append(0)
+        else:
+            init_y_pos.append(0)
+            init_y_neg.append(-entry)
+    t3 = time.time()
+
+    # print(f'first vertex: {x_feasible}')
+    # print(f'second vertex: {x_feasible_2}')
+    # print(f'init edge: {init_edge}')
     ########################################################
 
     # compute steepest-descent direction
-    descent_direction, y_pos, y_neg, steepness, num_steps, solve_time, phase_times = pm.compute_sd_direction(edge = np.array(init_edge), verbose=verbose)
-    test_dir = descent_direction
+    # descent_direction, y_pos, y_neg, steepness, num_steps, solve_time, phase_times = pm.compute_sd_direction(y_pos = init_y_pos, y_neg = init_y_neg, verbose=verbose)
+    
+    descent_direction, y_pos, y_neg, steepness, num_steps, solve_time, phase_times = pm.compute_sd_direction(y_pos = init_y_pos, y_neg = init_y_neg, 
+                                                                                                              edge = normed_B_edge, verbose=verbose)
+
+    # y_pos = np.zeros(P.m_B)
+    # y_neg = np.zeros(P.m_B)
+
+    # for i in range(P.m_B):
+    #     if i not in active_inds:
+    #         y_pos[i] = 0.5
+    #         y_neg[i] = 0.5
+    #         break;
+    # t3 = time.time()
+    # # compute steepest-descent direction
+    # descent_direction, y_pos, y_neg, steepness, num_steps, solve_time, phase_times = pm.compute_sd_direction(y_pos = y_pos, y_neg = y_neg, trivial = True, 
+                                                                                                         # verbose=verbose)
+
     simplex_iters.append(num_steps)
     sub_times['solve'].append(solve_time)
     sub_times['phase_times'].append(phase_times)
     
-    t3 = time.time()
-    sub_times['sd'].append(t3 - t2)
+    t4 = time.time()
+    sub_times['sd'].append(t4 - t3)
 
-    return result(status=0, x=x_current, 
-                  obj=P.c.dot(x_current), n_iters=len(step_sizes),
-                  iter_times=iter_times, alg_type='steepest-descent',
-                  circuits=descent_circuits, steps=step_sizes,
-                  simplex_iters=simplex_iters, solve_times=sub_times['solve'],
-                  sub_times=sub_times, obj_values=obj_values)
+    return sub_times['sd'][-1], sub_times['solve'][-1], sub_times['phase_times'][-1]
+
+    # return result(status=0, x=x_current, 
+    #               obj=P.c.dot(x_current), n_iters=len(step_sizes),
+    #               iter_times=iter_times, alg_type='steepest-descent',
+    #               circuits=descent_circuits, steps=step_sizes,
+    #               simplex_iters=simplex_iters, solve_times=sub_times['solve'],
+    #               sub_times=sub_times, obj_values=obj_values)

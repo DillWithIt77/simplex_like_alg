@@ -43,7 +43,7 @@ class Polyhedron:
         self.active_inds = [False] * self.m_B
         for i in inds:
             self.active_inds[i] = True
-        return inds   
+        return inds
     
     #given a point x in P with feasible direction g, compute the maximum step size alpha
     def get_max_step_size(self, x, g, active_inds=None, y_pos=None):
@@ -160,7 +160,9 @@ class Polyhedron:
         
         self.set_objective(c_orig)
         x_feasible = self.model.getAttr('x', self.x)  
-        return x_feasible
+        vbasis = self.model.getAttr(gp.GRB.Attr.VBasis)
+        cbasis = self.model.getAttr(gp.GRB.Attr.CBasis)
+        return x_feasible,vbasis,cbasis
                
     # sovle linear program using the given method
     def solve_lp(self, c=None, verbose=False, record_objs=True, method='primal_simplex'):
@@ -197,8 +199,8 @@ class Polyhedron:
         x_optimal = self.model.getAttr('x', self.x)        
         obj_optimal = self.model.objVal
         num_steps = self.model.getAttr('IterCount')
-        #solve_time = self.model.getAttr('Runtime')
-        solve_time = time.time() - t0
+        solve_time = self.model.getAttr('Runtime')
+        # solve_time = time.time() - t0
         output = result(0, x=x_optimal, obj=obj_optimal, n_iters=num_steps, solve_time=solve_time,
                         iter_times=iter_times, obj_values=obj_values, iter_counts=iter_counts)        
         return output
@@ -212,6 +214,7 @@ class Polyhedron:
             
         self.model.optimize()
         if self.model.status != gp.GRB.Status.OPTIMAL:
+            print('set solution is not feasible')
             raise RuntimeError('Failed to find feasible solution.')
         print('Feasible solution found with objective {}'.format(self.model.objVal))
         
@@ -224,6 +227,7 @@ class Polyhedron:
         self.set_objective(np.zeros(self.n))                  
         self.model.optimize()
         if self.model.status != gp.GRB.Status.OPTIMAL:
+            print('something weird with the return to normal')
             raise RuntimeError('Failed to set feasible solution.')                
         self.set_objective(c_orig)
         
@@ -276,8 +280,11 @@ class Polyhedron:
             self.B = np.concatenate((self.B, np.expand_dims(row, axis=0)))
             self.d = np.concatenate((self.d, np.array([rhs])))
 
-    def second_vert(self, init_x, init_obj, c=None, verbose=False, method='primal_simplex'):
-        ######try to find a way for this to not restart (if doesn't work then try XPRESS)
+    def second_vert(self, init_x, init_obj, num_dec_places, c=None, verbose=False, method='primal_simplex', **kwargs):
+        vbasis = kwargs.get('vbasis', None)
+        cbasis = kwargs.get('cbasis', None)
+        simp_switch = kwargs.get('simp_switch', False)
+
         if c is None:
             c = self.c
         assert self.c is not None, 'Need objective function'
@@ -285,124 +292,120 @@ class Polyhedron:
         if self.model is None:
             self.build_gurobi_model(c=c)
 
-        # for i in range(len(init_x)):
-        #     print(f'before set solution: {self.x[i].Start}')
-
-        # x_optimal = init_x
-        # non_zeros = np.count_nonzero(np.array(init_x) - np.array(x_optimal))
-        # it_count = 0
-
-        # while non_zeros != 2:
-        #     for i in range(self.n):
-        #         self.x[i].lb = init_x[i]
-        #         self.x[i].ub = init_x[i]
-        #     self.model.update()
-            
-        #     self.model.optimize()
-        #     if self.model.status != gp.GRB.Status.OPTIMAL:
-        #         raise RuntimeError('Failed to find feasible solution.')
-        #     print('Feasible solution found with objective {}'.format(self.model.objVal))
-        #     init_obj = self.model.objVal
-
-        #     # vbasis = self.model.getAttr(gp.GRB.Attr.VBasis)
-        #     # cbasis = self.model.getAttr(gp.GRB.Attr.CBasis)
-
-        #     if self.model.status == gp.GRB.Status.OPTIMAL:
-        #         for var in self.model.getVars():
-        #             var.Start = var.X
-
-        #     for i in range(self.n):
-        #         self.x[i].lb = -INF
-        #         self.x[i].ub = INF
-
-        #     # self.model.setAttr("VBasis", self.model.getVars(), vbasis)
-        #     # self. model.setAttr("CBasis", self.model.getConstrs(), cbasis)
-
-        #     self.set_objective(c)
-        #     self.set_method(method)
-        #     self.model.update()
-
-        #     # for i in range(len(init_x)):
-        #     #     print(f'after set solution: {self.x[i].Start}')
-        
-        #     t0 = time.time()
-            
-        #     def obj_callback(model, where):
-        #         if where == gp.GRB.Callback.SIMPLEX:
-        #             obj = model.cbGet(gp.GRB.Callback.SPX_OBJVAL)
-        #             prim_inf = model.cbGet(gp.GRB.Callback.SPX_PRIMINF)
-        #             itcnt = model.cbGet(gp.GRB.Callback.SPX_ITRCNT)
-        #             # if obj != init_obj:
-        #             if itcnt > it_count:
-        #                 model.terminate() 
-
-        #     # print(f'Solution Count: {self.model.SolCount}')
-        #     # print(self.model.status)
-
-        #     self.model.optimize(obj_callback)
-
-        #     x_optimal = self.model.getAttr('x', self.x)
-        #     non_zeros = np.count_nonzero(np.array(init_x) - np.array(x_optimal))
-        #     print(non_zeros)
-        #     it_count += 1
-
-        for i in range(self.n):
-            self.x[i].Start = init_x[i]
-
-        # for i in range(self.n):
-        #     self.x[i].lb = init_x[i]
-        #     self.x[i].ub = init_x[i]
+        self.set_objective(c)
+        if vbasis is not None and cbasis is not None:
+            self.model.setAttr("VBasis", self.model.getVars(), vbasis)
+            self. model.setAttr("CBasis", self.model.getConstrs(), cbasis)
+        else: 
+            i = 0
+            for var in self.model.getVars():
+                var.Start = init_x[i]
+                i+=1
         self.model.update()
-            
-        # self.model.optimize()
-        # if self.model.status != gp.GRB.Status.OPTIMAL:
-        #     raise RuntimeError('Failed to find feasible solution.')
-        # print('Feasible solution found with objective {}'.format(self.model.objVal))
-        # init_obj = self.model.objVal
-
-        # # vbasis = self.model.getAttr(gp.GRB.Attr.VBasis)
-        # # cbasis = self.model.getAttr(gp.GRB.Attr.CBasis)
-
-        # if self.model.status == gp.GRB.Status.OPTIMAL:
-        #     for var in self.model.getVars():
-        #         var.Start = var.X
-
-        # for i in range(self.n):
-        #     self.x[i].lb = -INF
-        #     self.x[i].ub = INF
-
-        # # self.model.setAttr("VBasis", self.model.getVars(), vbasis)
-        # # self. model.setAttr("CBasis", self.model.getConstrs(), cbasis)
-
-        # self.set_objective(c)
-        # self.set_method(method)
-        # self.model.update()
-
-        # for i in range(len(init_x)):
-        #     print(f'after set solution: {self.x[i].Start}')
-        
+        self.set_method(method)
         t0 = time.time()
             
         def obj_callback(model, where):
             if where == gp.GRB.Callback.SIMPLEX:
                 obj = model.cbGet(gp.GRB.Callback.SPX_OBJVAL)
-                # print(obj)
                 prim_inf = model.cbGet(gp.GRB.Callback.SPX_PRIMINF)
                 itcnt = model.cbGet(gp.GRB.Callback.SPX_ITRCNT)
-                # if prim_inf == 0.0 and itcnt > 0:
-                # if obj != init_obj and prim_inf == 0.0:
-                if obj != init_obj and itcnt > 0 and prim_inf == 0.0:
-                # if itcnt > 0:
-                    model.terminate() 
-
-        # print(f'Solution Count: {self.model.SolCount}')
-        # print(self.model.status)
+                if abs(obj-init_obj)>= 10**(-(num_dec_places-2)) and (itcnt > 0) and (prim_inf == 0.0):
+                    model.terminate()
 
         self.model.optimize(obj_callback)
-
         x_optimal = self.model.getAttr('x', self.x)
+        if x_optimal != init_x:
+            return x_optimal
+        elif self.model.status == gp.GRB.Status.OPTIMAL:
+            return x_optimal
+        else:
+            raise RuntimeError('Failed to find new vertex.')
 
-        # for var in self.model.getVars():
-        #     x_optimal.append(var.X)
+    def num_aft_dec(number): 
+        # Convert number to string
+        number_str = str(number)
+    
+        # Split string at the decimal point
+        if '.' in number_str:
+            # Get the part after the decimal point
+            decimal_part = number_str.split('.')[1]
+        
+            # Remove trailing zeros
+            decimal_part = decimal_part.rstrip('0')
+        
+            # Return the length of the remaining decimal part
+            return len(decimal_part)
+        else:
+            # No decimal point in the number
+            return 0
+
+    def solve_lp_ws(self, x, c=None, verbose=False, record_objs=True, method='primal_simplex'):
+    
+        if c is None:
+            assert self.c is not None, 'Need objective function'
+            c = self.c
+         
+        if self.model is None:
+            self.build_gurobi_model(c=c)
+
+        i = 0
+        for var in self.model.getVars():
+            var.Start = x[i]
+            i+=1
+
+        self.set_objective(c)
+        self.set_method(method)
+        self.model.update()
+        t0 = time.time()
+            
+        obj_values = []
+        iter_times = []
+        iter_counts = []
+        def obj_callback(model, where):
+            if where == gp.GRB.Callback.SIMPLEX:
+                obj = model.cbGet(gp.GRB.Callback.SPX_OBJVAL)
+                obj_values.append(obj)
+                iter_times.append(time.time() - t0)
                 
-        return x_optimal
+                iter_count = model.cbGet(gp.GRB.Callback.SPX_ITRCNT)
+                iter_counts.append(iter_count)
+                
+        if record_objs:
+            self.model.optimize(obj_callback)
+        else:
+            self.model.optimize()
+        if self.model.status != gp.GRB.Status.OPTIMAL:
+            raise RuntimeError('Model failed to solve')
+            
+        x_optimal = self.model.getAttr('x', self.x)        
+        obj_optimal = self.model.objVal
+        num_steps = self.model.getAttr('IterCount')
+        solve_time = self.model.getAttr('Runtime')
+        # solve_time = time.time() - t0
+        output = result(0, x=x_optimal, obj=obj_optimal, n_iters=num_steps, solve_time=solve_time,
+                        iter_times=iter_times, obj_values=obj_values, iter_counts=iter_counts)        
+        return output
+
+    def bfs_soln_chck(self, x):
+        feasible = True
+        for i in range(self.n):
+            self.x[i].lb = x[i]
+            self.x[i].ub = x[i]
+        self.model.update()
+        self.model.optimize()
+        if self.model.status != gp.GRB.Status.OPTIMAL:
+            feasible  = False
+        
+        # reset the model to its original state
+        for i in range(self.n):
+            self.x[i].lb = -INF
+            self.x[i].ub = INF
+        c_orig = np.copy(self.c)
+        self.model.update()
+        self.set_objective(np.zeros(self.n))                  
+        self.model.optimize()
+        if self.model.status != gp.GRB.Status.OPTIMAL:
+            feasible = False               
+        self.set_objective(c_orig)
+        return feasible

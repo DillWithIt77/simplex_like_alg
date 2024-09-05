@@ -3,7 +3,7 @@ import random
 import os
 import numpy as np
 
-import init_sdac
+import all_sdac
 from mps_reader_preprocessor import read_mps_preprocess
 from polyhedron import Polyhedron
 
@@ -15,7 +15,7 @@ def main(mps_fn='', results_dir='results', max_time=300, sd_method='dual_simplex
 				P = Polyhedron(B, d, A, b, c)
 
 				print('Finding feasible solution...')
-				x_feasible = P.find_feasible_solution(verbose=False)
+				x_feasible, vbasis, cbasis = P.find_feasible_solution(verbose=False)
 
 				print('\nSolving with simplex method...')
 				lp_result = P.solve_lp(verbose=False, record_objs=True)
@@ -23,14 +23,16 @@ def main(mps_fn='', results_dir='results', max_time=300, sd_method='dual_simplex
 				print(lp_result)
 
 				print('\nSolving with old steepest descent...')
-				old_sd_result = init_sdac.old_sdac(mps_fn,results_dir, max_time, reset,sd_method)
-				print('\nSolution for {} using old steepest-descent augmentation:'.format(os.path.basename(mps_fn)))
-				print(old_sd_result)
+				old_sd_result  = all_sdac.old_sdac(mps_fn,results_dir, max_time, reset,sd_method)
+				# print('\nSolution for {} using old steepest-descent augmentation:'.format(os.path.basename(mps_fn)))
+				# print(old_sd_result)
 
 				print('\nSolving with new steepest descent...')
-				new_sd_result = init_sdac.new_sdac(mps_fn,results_dir, max_time, reset,sd_method)
-				print('\nSolution for {} using new steepest-descent augmentation:'.format(os.path.basename(mps_fn)))
-				print(new_sd_result)
+				new_sd_result = all_sdac.new_sdac(mps_fn,results_dir, max_time, reset,sd_method)
+				# print('\nSolution for {} using new steepest-descent augmentation:'.format(os.path.basename(mps_fn)))
+				# print(new_sd_result)
+
+				# return old_sub, old_solve, old_phase, new_sub, new_solve, new_phase
 
 				#####Save results
 				if results_dir:
