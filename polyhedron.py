@@ -24,6 +24,7 @@ class Polyhedron:
         self.m_B, self.n = self.B.shape
         self.m_A = self.A.shape[0] if self.A is not None else 0
         self.model = None
+        # self.active_inds = [False] * self.m_B
         print('Problem size: n = {},  m_B = {},  m_A = {}'.format(self.n, self.m_B, self.m_A))
         
     # construct polyhedral model for computing circuits
@@ -66,7 +67,8 @@ class Polyhedron:
         return alpha, active_ind
     
     # use saved information about active facets to compute maximal step size along given direction
-    def take_maximal_step(self, g, y_pos, y_neg):
+    def take_maximal_step(self, g, y_pos, y_neg,**kwargs):
+        init_inds = kwargs.get('init_inds',[])
         assert hasattr(self, 'x_current') and hasattr(self, 'active_inds')  
         B_g = y_pos - y_neg
         alpha = float('inf')
@@ -76,7 +78,12 @@ class Polyhedron:
             if abs(B_g_i) <= EPS: 
                 continue
             elif B_g_i > 0:
-                if self.active_inds[i]: 
+                # if self.active_inds[i]:
+                if i in init_inds:
+                    print(f'i: {i}')
+                    print(f'B_g_i: {B_g_i}')
+                    print(f'active ind: {self.active_inds[i]}')
+                    print(f'init_ind: {i in init_inds}')
                     continue
                 a = (self.d[i] - self.B_x_current[i]) / float(B_g_i)
                 if abs(alpha - a) < EPS:
@@ -96,7 +103,7 @@ class Polyhedron:
             print('Degenerate step computed. Changing active facets...')
             for i in stopping_inds:
                 self.active_inds[i] = True           
-            #raise RuntimeError('Invalid step size: {}'.format(alpha))
+            # raise RuntimeError('Invalid step size: {}'.format(alpha))
         self.x_current += alpha * g
         self.B_x_current += alpha * B_g
         
