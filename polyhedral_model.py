@@ -62,7 +62,8 @@ class PolyhedralModel():
         self.model.setObjective(gp.LinExpr(c, self.x))
             
     def set_active_inds(self, active_inds,**kwargs):
-        switch = kwargs.get('simp_switch', False)
+        # switch = kwargs.get('simp_switch', False)
+        init_inds = kwargs.get('inds', None)
         self.active_inds = active_inds
         for i in range(self.m_B):
             self.y_pos[i].lb = 0.0
@@ -71,7 +72,8 @@ class PolyhedralModel():
             self.y_neg[i].ub = 1.0
         for i in self.active_inds:
             self.y_pos[i].ub = 0.0
-            if switch:
+        if init_inds is not None:
+            for i in init_inds:
                 self.y_neg[i].ub = 0.0 
 
                 
@@ -147,6 +149,10 @@ class PolyhedralModel():
                 self.y_pos[i].ub = init_y_pos[i]
                 self.y_neg[i].lb = init_y_neg[i]
                 self.y_neg[i].ub = init_y_neg[i]
+
+            # for i in range(self.n):
+            #     self.x[i].lb = init_edge[i]
+            #     self.x[i].ub = init_edge[i]
             
             self.model.update()
             self.model.optimize()
@@ -170,8 +176,17 @@ class PolyhedralModel():
                 vbasis = self.model.getAttr(gp.GRB.Attr.VBasis)
                 cbasis = self.model.getAttr(gp.GRB.Attr.CBasis)
 
+            scaled_edge = self.model.getAttr('x', self.x)
+            print(scaled_edge)
+
+            for var in self.model.getVars():
+                print(var.Start)
+
             self.model.setAttr("VBasis", self.model.getVars(), vbasis)
             self. model.setAttr("CBasis", self.model.getConstrs(), cbasis)
+            for i in range(self.n):
+                self.x[i].lb = -INF
+                self.x[i].ub = INF
             self.set_objective(self.c)
             self.set_active_inds(self.active_inds)
             self.set_method(self.method)              
@@ -194,12 +209,14 @@ class PolyhedralModel():
                         model._is_dualinf = False
         
         self.model.optimize(dualinf_callback)
+        # print(f' model status: {self.model.status}')
         if self.model.status != gp.GRB.Status.OPTIMAL:
             raise RuntimeError('Failed to find steepst-descent direction.')
         
         phase2_time = time.time() - self.model._phase1_time
         phase_times = (self.model._phase1_time, phase2_time)
         g = self.model.getAttr('x', self.x)
+        # print(f'circuit g: {g}')
         y_pos = self.model.getAttr('x', self.y_pos)
         y_neg = self.model.getAttr('x', self.y_neg)
         steepness = self.model.objVal

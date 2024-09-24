@@ -78,12 +78,13 @@ class Polyhedron:
             if abs(B_g_i) <= EPS: 
                 continue
             elif B_g_i > 0:
-                # if self.active_inds[i]:
-                if i in init_inds:
-                    print(f'i: {i}')
-                    print(f'B_g_i: {B_g_i}')
-                    print(f'active ind: {self.active_inds[i]}')
-                    print(f'init_ind: {i in init_inds}')
+                if self.active_inds[i]:
+                # if i in init_inds:
+                    # print(f'i: {i}')
+                    # # print(f'row (B)_i: {self.B[i]}')
+                    # print(f'B_g_i: {B_g_i}')
+                    # print(f'active ind: {self.active_inds[i]}')
+                    # print(f'init_ind: {i in init_inds}')
                     continue
                 a = (self.d[i] - self.B_x_current[i]) / float(B_g_i)
                 if abs(alpha - a) < EPS:
