@@ -10,7 +10,7 @@ class PolyhedralModel():
     # Given matrices B and A (and optional inds argument / objective function),
     # builds a polyhedral model for computing steepest-descent circuits
     # as a gurobi linear program model
-    def __init__(self, B, A=None, active_inds=[], c=None, primal=True, method='dual_simplex'):
+    def __init__(self, B, A=None, active_inds=[], c=None, primal=True, method='dual_simplex', alt = False):
         
         print('Building polyhedral model. Solve method: {}'.format(method))
         
@@ -33,8 +33,11 @@ class PolyhedralModel():
                 self.model.addConstr(gp.LinExpr(list(B[i]) + [-1, 1], 
                                                 self.x + [self.y_pos[i], self.y_neg[i]]) == 0, 
                                                 name='B_{}'.format(i))
-    
-            self.model.addConstr(gp.LinExpr([1]*(2*self.m_B), self.y_pos + self.y_neg) == 1, 
+            if alt:
+                self.model.addConstr(gp.LinExpr([1]*(self.m_B), self.y_pos) <= 1, 
+                                 name='alt_1_norm')
+            else:
+                self.model.addConstr(gp.LinExpr([1]*(2*self.m_B), self.y_pos + self.y_neg) == 1, 
                                  name='1_norm')
                 
             if A is not None:
@@ -149,10 +152,6 @@ class PolyhedralModel():
                 self.y_pos[i].ub = init_y_pos[i]
                 self.y_neg[i].lb = init_y_neg[i]
                 self.y_neg[i].ub = init_y_neg[i]
-
-            # for i in range(self.n):
-            #     self.x[i].lb = init_edge[i]
-            #     self.x[i].ub = init_edge[i]
             
             self.model.update()
             self.model.optimize()

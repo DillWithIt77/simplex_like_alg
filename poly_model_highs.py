@@ -14,7 +14,7 @@ class PolyhedralModel():
         
         print('Building polyhedral model. Solve method: {}'.format(method))
         
-        self.model = gp.Model()
+        self.model = hp.Highs()
         self.primal = primal
         
         # add variables and constraints to the model

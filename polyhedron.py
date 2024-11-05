@@ -28,8 +28,8 @@ class Polyhedron:
         print('Problem size: n = {},  m_B = {},  m_A = {}'.format(self.n, self.m_B, self.m_A))
         
     # construct polyhedral model for computing circuits
-    def build_polyhedral_model(self, active_inds=[], primal=True, method='dual_simplex'):
-        pm = PolyhedralModel(B=self.B, A=self.A, c=self.c, active_inds=active_inds, method=method)
+    def build_polyhedral_model(self, active_inds=[], primal=True, method='dual_simplex', alt = False):
+        pm = PolyhedralModel(B=self.B, A=self.A, c=self.c, active_inds=active_inds, method=method, alt = alt)
         return pm
     
     # set current problem solution and get active constraints
@@ -294,6 +294,7 @@ class Polyhedron:
         simp_switch = kwargs.get('simp_switch', False)
 
         if c is None:
+            # print(self.c)
             c = self.c
         assert self.c is not None, 'Need objective function'
          
@@ -312,18 +313,25 @@ class Polyhedron:
         self.model.update()
         self.set_method(method)
         t0 = time.time()
+
+        # for var in self.model.getVars():
+        #     print(var.Start)
+
+        # print(self.c.dot(init_x))
             
         def obj_callback(model, where):
             if where == gp.GRB.Callback.SIMPLEX:
                 obj = model.cbGet(gp.GRB.Callback.SPX_OBJVAL)
                 prim_inf = model.cbGet(gp.GRB.Callback.SPX_PRIMINF)
+                dual_inf = model.cbGet(gp.GRB.Callback.SPX_DUALINF)
                 itcnt = model.cbGet(gp.GRB.Callback.SPX_ITRCNT)
-                if abs(obj-init_obj)>= 10**(-(num_dec_places-2)) and (itcnt > 0) and (prim_inf == 0.0):
+                if abs(obj-init_obj)>= 10**(-(num_dec_places-2)) and (itcnt > 0) and (prim_inf == 0.0) and (dual_inf == 0.0):
                     model.terminate()
 
         self.model.optimize(obj_callback)
         x_optimal = self.model.getAttr('x', self.x)
-        if x_optimal != init_x:
+        # if x_optimal != init_x:
+        if not np.array_equal(x_optimal,init_x):
             return x_optimal
         elif self.model.status == gp.GRB.Status.OPTIMAL:
             return x_optimal
@@ -390,7 +398,6 @@ class Polyhedron:
         obj_optimal = self.model.objVal
         num_steps = self.model.getAttr('IterCount')
         solve_time = self.model.getAttr('Runtime')
-        # solve_time = time.time() - t0
         output = result(0, x=x_optimal, obj=obj_optimal, n_iters=num_steps, solve_time=solve_time,
                         iter_times=iter_times, obj_values=obj_values, iter_counts=iter_counts)        
         return output

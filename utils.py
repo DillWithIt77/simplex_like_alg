@@ -18,10 +18,11 @@ def avg(x):
 
 
 class result:  
-    def __init__(self, status, x=None, obj=None, n_iters=None, solve_time=None, iter_times=[], alg_type='simplex',
+    def __init__(self, status, switch_iter = 0, x=None, obj=None, n_iters=None, solve_time=None, iter_times=[], alg_type='simplex',
                  circuits=[], steps=[], simplex_iters=[], solve_times=[], sub_times=None,
                  obj_values=[], iter_counts=[]):
         self.status = status
+        self.switch_iter = switch_iter
         self.x = x
         self.obj = obj
         self.n_iters = n_iters
