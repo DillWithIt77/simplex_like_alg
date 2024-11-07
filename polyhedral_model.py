@@ -34,6 +34,7 @@ class PolyhedralModel():
                                                 self.x + [self.y_pos[i], self.y_neg[i]]) == 0, 
                                                 name='B_{}'.format(i))
             if alt:
+                print('added alt constraints')
                 self.model.addConstr(gp.LinExpr([1]*(self.m_B), self.y_pos) <= 1, 
                                  name='alt_1_norm')
             else:
@@ -65,7 +66,6 @@ class PolyhedralModel():
         self.model.setObjective(gp.LinExpr(c, self.x))
             
     def set_active_inds(self, active_inds,**kwargs):
-        # switch = kwargs.get('simp_switch', False)
         init_inds = kwargs.get('inds', None)
         self.active_inds = active_inds
         for i in range(self.m_B):
