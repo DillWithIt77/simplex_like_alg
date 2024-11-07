@@ -253,7 +253,9 @@ def hybrid_up_act(mps_fn, results_dir, max_time, reset, sd_method):
     c, B, d, A, b = read_mps_preprocess(mps_fn)
     print('Building polyhedron...')
     P = Polyhedron(B, d, A, b, c)
-    rank_A = np.linalg.matrix_rank(A)
+    if P.m_A != 0:
+        rank_A = np.linalg.matrix_rank(A)
+    else: rank_A = 0
 
     print('Finding feasible solution...')
     x_feasible, vbasis, cbasis = P.find_feasible_solution(verbose=False)
@@ -323,7 +325,7 @@ def hybrid_up_act(mps_fn, results_dir, max_time, reset, sd_method):
         if not did_simp:
             x_current, alpha, active_inds = P.take_maximal_step(descent_direction, y_pos, y_neg)
 
-        if len(active_inds) < (P.n - rank_A):
+        if len(active_inds) < (P.n - rank_A)-math.floor(P.n/10):
             restrict_facets.append(True)
         else:
             restrict_facets.append(False)
@@ -393,7 +395,9 @@ def hybrid_init_act(mps_fn, results_dir, max_time, reset, sd_method):
     c, B, d, A, b = read_mps_preprocess(mps_fn)
     print('Building polyhedron...')
     P = Polyhedron(B, d, A, b, c)
-    rank_A = np.linalg.matrix_rank(A)
+    if P.m_A != 0:
+        rank_A = np.linalg.matrix_rank(A)
+    else: rank_A = 0
 
     print('Finding feasible solution...')
     x_feasible, vbasis, cbasis = P.find_feasible_solution(verbose=False)
@@ -463,7 +467,7 @@ def hybrid_init_act(mps_fn, results_dir, max_time, reset, sd_method):
         if not did_simp:
             x_current, alpha, active_inds = P.take_maximal_step(descent_direction, y_pos, y_neg)
 
-        if len(active_inds) < (P.n - rank_A):
+        if len(active_inds) < (P.n - rank_A)-math.floor(P.n/10):
             restrict_facets.append(True)
         else:
             restrict_facets.append(False)

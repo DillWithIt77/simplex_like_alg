@@ -25,8 +25,8 @@ def hybrid_main(mps_fn='', results_dir='results', max_time=300, sd_method='dual_
 				print('\nSolving with original steepest descent...')
 				old_sd_result = hyb_sd.old_sdac(mps_fn,results_dir, max_time, reset,sd_method)
 
-				print('\nSolving with alt steepest descent...')
-				alt_sd_result = hyb_sd.alt_sdac(mps_fn,results_dir, max_time, reset,sd_method)
+				# print('\nSolving with alt steepest descent...')
+				# alt_sd_result = hyb_sd.alt_sdac(mps_fn,results_dir, max_time, reset,sd_method)
 
 				print('\nSolving with hybrid steepest descent with init active inds...')
 				hybrid_init_act_sd_result = hyb_sd.hybrid_init_act(mps_fn,results_dir, max_time, reset,sd_method)
@@ -42,11 +42,11 @@ def hybrid_main(mps_fn='', results_dir='results', max_time=300, sd_method='dual_
 						prefix = os.path.basename(mps_fn).split('.')[0]
 						lp_fn = os.path.join(results_dir, prefix + '_lp.p')
 						old_sd_fn = os.path.join(results_dir, prefix + '_old_sd.p')
-						alt_sd_fn = os.path.join(results_dir, prefix + '_alt_sd.p')
+						# alt_sd_fn = os.path.join(results_dir, prefix + '_alt_sd.p')
 						reg_hybrid_init_act_sd_fn = os.path.join(results_dir, prefix + '_reg_hybrid_up_act_sd.p')
 						reg_hybrid_up_act_sd_fn = os.path.join(results_dir, prefix + '_reg_hybrid_init_act_sd.p')
 						lp_result.save(lp_fn)
 						old_sd_result.save(old_sd_fn)
-						alt_sd_result.save(alt_sd_fn)
+						# alt_sd_result.save(alt_sd_fn)
 						hybrid_init_act_sd_result.save(reg_hybrid_init_act_sd_fn)
 						hybrid_up_act_sd_result.save(reg_hybrid_up_act_sd_fn)
