@@ -34,7 +34,6 @@ class PolyhedralModel():
                                                 self.x + [self.y_pos[i], self.y_neg[i]]) == 0, 
                                                 name='B_{}'.format(i))
             if alt:
-                print('added alt constraints')
                 self.model.addConstr(gp.LinExpr([1]*(self.m_B), self.y_pos) <= 1, 
                                  name='alt_1_norm')
             else:

@@ -33,18 +33,28 @@ class Polyhedron:
         return pm
     
     # set current problem solution and get active constraints
-    def get_active_constraints(self, x):
+    def get_active_constraints(self, x, alt = False):
         B_x = self.B.dot(x)
         inds = []
+        M = -float('inf')
+        omega = flaot('inf')
         for i in range(self.m_B):
+            diff = self.d[i] - B_x[i] 
             if self.d[i] - B_x[i] <= EPS:
                 inds.append(i)
+            if diff > M:
+                M = diff
+            if diff > 0 and diff < omega:
+                omega = diff
         self.x_current = x
         self.B_x_current = B_x
         self.active_inds = [False] * self.m_B
         for i in inds:
             self.active_inds[i] = True
-        return inds
+        if alt:
+            return inds, M, omega
+        else:
+            return inds
     
     #given a point x in P with feasible direction g, compute the maximum step size alpha
     def get_max_step_size(self, x, g, active_inds=None, y_pos=None):
@@ -79,12 +89,6 @@ class Polyhedron:
                 continue
             elif B_g_i > 0:
                 if self.active_inds[i]:
-                # if i in init_inds:
-                    # print(f'i: {i}')
-                    # # print(f'row (B)_i: {self.B[i]}')
-                    # print(f'B_g_i: {B_g_i}')
-                    # print(f'active ind: {self.active_inds[i]}')
-                    # print(f'init_ind: {i in init_inds}')
                     continue
                 a = (self.d[i] - self.B_x_current[i]) / float(B_g_i)
                 if abs(alpha - a) < EPS:

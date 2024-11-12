@@ -125,7 +125,7 @@ def old_sdac(mps_fn, results_dir, max_time, reset, sd_method):
     # return sub_times['sd'][-1], sub_times['solve'][-1], sub_times['phase_times'][-1]
 
     return result(status=0, x=x_current, 
-                  obj=P.c.dot(x_current), n_iters=len(step_sizes),
+                  obj=P.c.dot(x_current), n_iters=len(step_sizes), solve_time=total_time,
                   iter_times=iter_times, alg_type='steepest-descent',
                   circuits=descent_circuits, steps=step_sizes,
                   simplex_iters=simplex_iters, solve_times=sub_times['solve'],
@@ -264,7 +264,7 @@ def new_sdac(mps_fn, results_dir, max_time, reset, sd_method):
     # return sub_times['sd'][-1], sub_times['solve'][-1], sub_times['phase_times'][-1]
 
     return result(status=0, x=x_current, 
-                  obj=P.c.dot(x_current), n_iters=len(step_sizes),
+                  obj=P.c.dot(x_current), n_iters=len(step_sizes), solve_time=total_time,
                   iter_times=iter_times, alg_type='steepest-descent',
                   circuits=descent_circuits, steps=step_sizes,
                   simplex_iters=simplex_iters, solve_times=sub_times['solve'],
