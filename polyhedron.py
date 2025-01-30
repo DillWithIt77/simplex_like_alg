@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.sparse import issparse
 import sympy
 import gurobipy as gp
 import contextlib
@@ -37,7 +38,7 @@ class Polyhedron:
         B_x = self.B.dot(x)
         inds = []
         M = -float('inf')
-        omega = flaot('inf')
+        omega = float('inf')
         for i in range(self.m_B):
             diff = self.d[i] - B_x[i] 
             if self.d[i] - B_x[i] <= EPS:
@@ -126,10 +127,43 @@ class Polyhedron:
         self.x = []
         for i in range(self.n):
             self.x.append(self.model.addVar(lb=-INF, ub=INF, name='x_{}'.format(i)))
-        for i in range(self.m_A):
-            self.model.addConstr(gp.LinExpr(self.A[i], self.x) == self.b[i], name='A_{}'.format(i))
-        for i in range(self.m_B):
-            self.model.addConstr(gp.LinExpr(self.B[i], self.x) <= self.d[i], name='B_{}'.format(i))
+        
+        if issparse(self.A):
+            for i in range(self.m_A):
+                # Extract the nonzero elements in row `i`
+                start_idx, end_idx = self.A.indptr[i], self.A.indptr[i + 1]
+    
+                # Get the nonzero values and corresponding column indices
+                row_values = self.A.data[start_idx:end_idx]  # Nonzero values in the row
+                row_columns = self.A.indices[start_idx:end_idx]  # Corresponding column indices
+
+                # Use addTerms() to efficiently create the expression
+                expr = gp.LinExpr()
+                expr.addTerms(row_values, [self.x[j] for j in row_columns])
+
+                # Add the constraint to the model
+                self.model.addConstr(expr == self.b[i], name='A_{}'.format(i))
+        else:
+            for i in range(self.m_A):
+                self.model.addConstr(gp.LinExpr(self.A[i], self.x) == self.b[i], name='A_{}'.format(i))
+        if issparse(self.B):
+            for i in range(self.m_B):
+                # Extract the nonzero elements in row `i`
+                start_idx, end_idx = self.B.indptr[i], self.B.indptr[i + 1]
+    
+                # Get the nonzero values and corresponding column indices
+                row_values = self.B.data[start_idx:end_idx]  # Nonzero values in the row
+                row_columns = self.B.indices[start_idx:end_idx]  # Corresponding column indices
+
+                # Use addTerms() to efficiently create the expression
+                expr = gp.LinExpr()
+                expr.addTerms(row_values, [self.x[j] for j in row_columns])
+
+                # Add the constraint to the model
+                self.model.addConstr(expr <= self.d[i], name='B_{}'.format(i))
+        else:
+            for i in range(self.m_B):
+                self.model.addConstr(gp.LinExpr(self.B[i], self.x) <= self.d[i], name='B_{}'.format(i))
             
         self.set_objective(c)     
         self.set_verbose(verbose)
@@ -206,6 +240,7 @@ class Polyhedron:
         else:
             self.model.optimize()
         if self.model.status != gp.GRB.Status.OPTIMAL:
+            print(f'Model Status: {self.model.status}')
             raise RuntimeError('Model failed to solve')
             
         x_optimal = self.model.getAttr('x', self.x)        
@@ -413,6 +448,36 @@ class Polyhedron:
             self.x[i].ub = x[i]
         self.model.update()
         self.model.optimize()
+        # if self.model.status == gp.GRB.Status.OPTIMAL or self.model.status == gp.GRB.status.FEASIBLE:
+        #     active_constraints = []
+        #     for cont in self.model.getConstrs():
+        #         slack = cont.getAttr("slack")
+        #         if abs(slack) < 1e-6:  # Adjust tolerance as needed
+        #             active_constraints.append(cont)
+
+        #     active_matrix = []
+        #     for cont in active_constraints:
+        #         coeffs = [v.getAttr("X") for v in self.model.getVars()]  # Replace with proper coefficient retrieval
+        #         active_matrix.append(coeffs)
+
+        #     active_matrix = np.array(active_matrix)
+
+        #     # Check rank
+        #     rank = np.linalg.matrix_rank(active_matrix)
+        #     if rank == self.n:
+        #         feasible = True
+
+
+
+            # vbasis = self.model.getAttr(gp.GRB.Attr.VBasis)
+    
+            # # Count basic variables
+            # num_basic_vars = sum(1 for v in vbasis if v == 0)  # 0 means 'basic'
+            # # num_constraints = self.model.numConstrs
+
+            # if num_basic_vars == self.n:
+            #     feasible = True
+
         if self.model.status != gp.GRB.Status.OPTIMAL:
             feasible  = False
         
@@ -424,7 +489,40 @@ class Polyhedron:
         self.model.update()
         self.set_objective(np.zeros(self.n))                  
         self.model.optimize()
-        if self.model.status != gp.GRB.Status.OPTIMAL:
-            feasible = False               
+        # if self.model.status != gp.GRB.Status.OPTIMAL:
+        #     feasible = False               
         self.set_objective(c_orig)
         return feasible
+        
+        # feasible = False
+        # for i in range(self.n):
+        #     self.x[i].lb = x[i]
+        #     self.x[i].ub = x[i]
+        # self.model.update()
+        # self.model.optimize()
+        # if self.model.status == gp.GRB.Status.OPTIMAL:
+        #     vbasis = self.model.getAttr(gp.GRB.Attr.VBasis)
+        #     cbasis = self.model.getAttr(gp.GRB.Attr.CBasis)
+    
+        #     # Count basic variables
+        #     num_basic_vars = sum(1 for v in vbasis if v == 0)  # 0 means 'basic'
+
+    
+        #     if num_basic_vars == self.m_A:  # Dimension check
+        #         feasible = True
+
+        # if self.model.status != gp.GRB.Status.OPTIMAL:
+        #     feasible  = False
+        
+        # reset the model to its original state
+        # for i in range(self.n):
+        #     self.x[i].lb = -INF
+        #     self.x[i].ub = INF
+        # c_orig = np.copy(self.c)
+        # self.model.update()
+        # self.set_objective(np.zeros(self.n))                  
+        # self.model.optimize()
+        # # if self.model.status != gp.GRB.Status.OPTIMAL:
+        # #     feasible = False               
+        # self.set_objective(c_orig)
+        # return feasible

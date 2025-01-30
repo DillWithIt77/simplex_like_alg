@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.sparse import issparse
 import gurobipy as gp
 import contextlib
 import time
@@ -27,12 +28,35 @@ class PolyhedralModel():
             self.x_neg = []
             for i in range(self.n):
                 self.x.append(self.model.addVar(lb=-INF, ub=INF, name='x_{}'.format(i)))
-            for i in range(self.m_B):
-                self.y_pos.append(self.model.addVar(lb=0.0, ub=1.0, name='y_pos_{}'.format(i)))
-                self.y_neg.append(self.model.addVar(lb=0.0, ub=1.0, name='y_neg_{}'.format(i)))
-                self.model.addConstr(gp.LinExpr(list(B[i]) + [-1, 1], 
-                                                self.x + [self.y_pos[i], self.y_neg[i]]) == 0, 
-                                                name='B_{}'.format(i))
+
+            if issparse(B):
+                for i in range(self.m_B):
+                    self.y_pos.append(self.model.addVar(lb=0.0, ub=1.0, name='y_pos_{}'.format(i)))
+                    self.y_neg.append(self.model.addVar(lb=0.0, ub=1.0, name='y_neg_{}'.format(i)))
+
+                    # Extract the nonzero elements in row `i`
+                    start_idx, end_idx = B.indptr[i], B.indptr[i + 1]
+    
+                    # Get the nonzero values and corresponding column indices
+                    row_values = B.data[start_idx:end_idx]  # Nonzero values in the row
+                    row_columns = B.indices[start_idx:end_idx]  # Corresponding column indices
+
+                    # Use addTerms() to efficiently create the expression
+                    expr = gp.LinExpr()
+                    expr.addTerms(row_values, [self.x[j] for j in row_columns])
+                    expr.addTerms([-1, 1], [self.y_pos[i], self.y_neg[i]])
+
+                    # Add the constraint to the model
+                    self.model.addConstr(expr == 0, name='B_{}'.format(i))
+
+
+            else:
+                for i in range(self.m_B):
+                    self.y_pos.append(self.model.addVar(lb=0.0, ub=1.0, name='y_pos_{}'.format(i)))
+                    self.y_neg.append(self.model.addVar(lb=0.0, ub=1.0, name='y_neg_{}'.format(i)))
+                    self.model.addConstr(gp.LinExpr(list(B[i]) + [-1, 1], 
+                                                    self.x + [self.y_pos[i], self.y_neg[i]]) == 0, 
+                                                    name='B_{}'.format(i))
             if alt:
                 self.model.addConstr(gp.LinExpr([1]*(self.m_B), self.y_pos) <= 1, 
                                  name='alt_1_norm')
@@ -42,9 +66,25 @@ class PolyhedralModel():
                 
             if A is not None:
                 self.m_A = A.shape[0]
-                for i in range(self.m_A):
-                    self.model.addConstr(gp.LinExpr(A[i], self.x) == 0, 
-                                         name='A_{}'.format(i))
+                if issparse(A):
+                    for i in range(self.m_A):
+                        # Extract the nonzero elements in row `i`
+                        start_idx, end_idx = A.indptr[i], A.indptr[i + 1]
+    
+                        # Get the nonzero values and corresponding column indices
+                        row_values = A.data[start_idx:end_idx]  # Nonzero values in the row
+                        row_columns = A.indices[start_idx:end_idx]  # Corresponding column indices
+
+                        # Use addTerms() to efficiently create the expression
+                        expr = gp.LinExpr()
+                        expr.addTerms(row_values, [self.x[j] for j in row_columns])
+
+                        # Add the constraint to the model
+                        self.model.addConstr(expr == 0, name='A_{}'.format(i))
+                else:
+                    for i in range(self.m_A):
+                        self.model.addConstr(gp.LinExpr(A[i], self.x) == 0, 
+                                            name='A_{}'.format(i))
             else:
                 self.m_A = 0
                 
@@ -196,7 +236,7 @@ class PolyhedralModel():
                     print(var.Start)
         
         t0 = time.time()
-        self.model._phase1_time = 0 #None
+        self.model._phase1_time = None
         self.model._is_dualinf = True
         def dualinf_callback(model, where):
             if where == gp.GRB.Callback.SIMPLEX:

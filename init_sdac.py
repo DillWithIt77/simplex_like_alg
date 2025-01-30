@@ -11,10 +11,21 @@ from polyhedral_model import PolyhedralModel
 from polyhedron import Polyhedron
 
 
-def old_sdac(mps_fn, results_dir, max_time, reset, sd_method):
-    ### Build Initial Polyhedron from file
-    print(f'Reading {mps_fn}...')
-    c, B, d, A, b = read_mps_preprocess(mps_fn)
+def old_sdac(mps_fn, results_dir, max_time, reset, sd_method, **kwargs):
+    mat_input = kwargs.get('mat_input', False)
+    A = kwargs.get('A', [])
+    B = kwargs.get('B', [])
+    b = kwargs.get('b', [])
+    d = kwargs.get('d', [])
+    c = kwargs.get('c', []) 
+
+    if mat_input == False:
+      ### Build Initial Polyhedron from file
+      print(f'Reading {mps_fn}...')
+      c, B, d, A, b = read_mps_preprocess(mps_fn)
+    else:
+      print('using matrix input')
+
     print('Building polyhedron...')
     P = Polyhedron(B, d, A, b, c)
 
@@ -80,10 +91,21 @@ def old_sdac(mps_fn, results_dir, max_time, reset, sd_method):
                   simplex_iters=simplex_iters, solve_times=sub_times['solve'],
                   sub_times=sub_times, obj_values=obj_values)
 
-def new_sdac(mps_fn, results_dir, max_time, reset, sd_method):
-    ### Build Initial Polyhedron from file
-    print(f'Reading {mps_fn}...')
-    c, B, d, A, b = read_mps_preprocess(mps_fn)
+def new_sdac(mps_fn, results_dir, max_time, reset, sd_method, **kwargs):
+    mat_input = kwargs.get('mat_input', False)
+    A = kwargs.get('A', [])
+    B = kwargs.get('B', [])
+    b = kwargs.get('b', [])
+    d = kwargs.get('d', [])
+    c = kwargs.get('c', []) 
+
+    if mat_input == False:
+      ### Build Initial Polyhedron from file
+      print(f'Reading {mps_fn}...')
+      c, B, d, A, b = read_mps_preprocess(mps_fn)
+    else:
+      print('using matrix input')
+      
     print('Building polyhedron...')
     P = Polyhedron(B, d, A, b, c)
 
@@ -133,32 +155,44 @@ def new_sdac(mps_fn, results_dir, max_time, reset, sd_method):
 
     ####get edge for initial circuit direction here#########
     x_feasible_2= P.second_vert(x_current, obj_value, num_dec_places, verbose=False, vbasis = vbasis, cbasis = cbasis)
-    edge = np.array(x_feasible_2) - np.array(x_current)
-    B_edge = np.dot(B,np.array(edge))
-    norm = np.linalg.norm(np.array(B_edge),1)
-    scaled_edge = edge/(norm)
-    normed_B_edge = B_edge/(norm)
-    init_y_pos = []
-    init_y_neg = []
-    for entry in normed_B_edge:
-      if entry > 0:
-        init_y_pos.append(entry)
-        init_y_neg.append(0)
+    if np.array_equal(x_feasible, x_feasible_2):
+      print('Starting Vertex is Optimal Solution')
+      steepness = 0
+      simplex_iters.append(0)
+      sub_times['solve'].append(0)
+      sub_times['phase_times'].append(0)
+      sub_times['sd'].append(0)
+
+    else:
+      edge = np.array(x_feasible_2) - np.array(x_current)
+      if mat_input:
+        B_edge = B @ np.array(edge)
       else:
-        init_y_pos.append(0)
-        init_y_neg.append(-entry)
+        B_edge = np.dot(B,np.array(edge))
+      norm = np.linalg.norm(np.array(B_edge),1)
+      scaled_edge = edge/(norm)
+      normed_B_edge = B_edge/(norm)
+      init_y_pos = []
+      init_y_neg = []
+      for entry in normed_B_edge:
+        if entry > 0:
+          init_y_pos.append(entry)
+          init_y_neg.append(0)
+        else:
+          init_y_pos.append(0)
+          init_y_neg.append(-entry)
     ########################################################
 
-    # compute steepest-descent direction
-    t3 = time.time()
-    descent_direction, y_pos, y_neg, steepness, num_steps, solve_time, phase_times = pm.compute_sd_direction(y_pos = init_y_pos, y_neg = init_y_neg, 
+      # compute steepest-descent direction
+      t3 = time.time()
+      descent_direction, y_pos, y_neg, steepness, num_steps, solve_time, phase_times = pm.compute_sd_direction(y_pos = init_y_pos, y_neg = init_y_neg, 
                                                                                                          edge = scaled_edge,verbose=verbose)
-    simplex_iters.append(num_steps)
-    sub_times['solve'].append(solve_time)
-    sub_times['phase_times'].append(phase_times)
+      simplex_iters.append(num_steps)
+      sub_times['solve'].append(solve_time)
+      sub_times['phase_times'].append(phase_times)
     
-    t4 = time.time()
-    sub_times['sd'].append(t4 - t3)
+      t4 = time.time()
+      sub_times['sd'].append(t4 - t3)
 
     # return sub_times['sd'][-1], sub_times['solve'][-1], sub_times['phase_times'][-1]
     # return (t3-t2)
@@ -170,10 +204,21 @@ def new_sdac(mps_fn, results_dir, max_time, reset, sd_method):
                   simplex_iters=simplex_iters, solve_times=sub_times['solve'],
                   sub_times=sub_times, obj_values=obj_values)
 
-def trivial_sdac(mps_fn, results_dir, max_time, reset, sd_method):
-    ### Build Initial Polyhedron from file
-    print(f'Reading {mps_fn}...')
-    c, B, d, A, b = read_mps_preprocess(mps_fn)
+def trivial_sdac(mps_fn, results_dir, max_time, reset, sd_method, **kwargs):
+    mat_input = kwargs.get('mat_input', False)
+    A = kwargs.get('A', [])
+    B = kwargs.get('B', [])
+    b = kwargs.get('b', [])
+    d = kwargs.get('d', [])
+    c = kwargs.get('c', []) 
+
+    if mat_input == False:
+      ### Build Initial Polyhedron from file
+      print(f'Reading {mps_fn}...')
+      c, B, d, A, b = read_mps_preprocess(mps_fn)
+    else:
+      print('using matrix input')
+      
     print('Building polyhedron...')
     P = Polyhedron(B, d, A, b, c)
 
@@ -244,11 +289,11 @@ def trivial_sdac(mps_fn, results_dir, max_time, reset, sd_method):
     sub_times['sd'].append(t4 - t3)
 
     # return sub_times['sd'][-1], sub_times['solve'][-1], sub_times['phase_times'][-1]
-    return (t3-t2)
+    # return (t3-t2)
 
-    # return result(status=0, x=x_current, 
-    #               obj=P.c.dot(x_current), n_iters=len(step_sizes),
-    #               iter_times=iter_times, alg_type='steepest-descent',
-    #               circuits=descent_circuits, steps=step_sizes,
-    #               simplex_iters=simplex_iters, solve_times=sub_times['solve'],
-    #               sub_times=sub_times, obj_values=obj_values)
+    return result(status=0, x=x_current, 
+                  obj=P.c.dot(x_current), n_iters=len(step_sizes),
+                  iter_times=iter_times, alg_type='steepest-descent',
+                  circuits=descent_circuits, steps=step_sizes,
+                  simplex_iters=simplex_iters, solve_times=sub_times['solve'],
+                  sub_times=sub_times, obj_values=obj_values)

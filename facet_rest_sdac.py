@@ -11,10 +11,21 @@ from polyhedral_model import PolyhedralModel
 from polyhedron import Polyhedron
 
 
-def old_sdac(mps_fn, results_dir, max_time, reset, sd_method):
-    ### Build Initial Polyhedron from file
-    print(f'Reading {mps_fn}...')
-    c, B, d, A, b = read_mps_preprocess(mps_fn)
+def old_sdac(mps_fn, results_dir, max_time, reset, sd_method, **kwargs):
+    mat_input = kwargs.get('mat_input', False)
+    A = kwargs.get('A', [])
+    B = kwargs.get('B', [])
+    b = kwargs.get('b', [])
+    d = kwargs.get('d', [])
+    c = kwargs.get('c', [])
+
+    if mat_input == False:
+        ### Build Initial Polyhedron from file
+        print(f'Reading {mps_fn}...')
+        c, B, d, A, b = read_mps_preprocess(mps_fn)
+    else:
+        print('Using matrix input')
+
     print('Building polyhedron...')
     P = Polyhedron(B, d, A, b, c)
 
@@ -131,14 +142,30 @@ def old_sdac(mps_fn, results_dir, max_time, reset, sd_method):
                   simplex_iters=simplex_iters, solve_times=sub_times['solve'],
                   sub_times=sub_times, obj_values=obj_values)
 
-def circ_up_act_rest(mps_fn, results_dir, max_time, reset, sd_method):
-    ### Build Initial Polyhedron from file
-    print(f'Reading {mps_fn}...')
-    c, B, d, A, b = read_mps_preprocess(mps_fn)
+def circ_up_act_rest(mps_fn, results_dir, max_time, reset, sd_method, **kawrgs):
+    mat_input = kwargs.get('mat_input', False)
+    A = kwargs.get('A', [])
+    B = kwargs.get('B', [])
+    b = kwargs.get('b', [])
+    d = kwargs.get('d', [])
+    c = kwargs.get('c', [])
+
+    if mat_input == False:
+        ### Build Initial Polyhedron from file
+        print(f'Reading {mps_fn}...')
+        c, B, d, A, b = read_mps_preprocess(mps_fn)
+    else:
+        print('Using matrix input')
+
     print('Building polyhedron...')
     P = Polyhedron(B, d, A, b, c)
+
     if P.m_A != 0:
-        rank_A = np.linalg.matrix_rank(A)
+        if issparse(A):
+            u, s, vt = svds(A, k=min(A.shape)-1)
+            rank_A = np.sum(s > tol)
+        else:
+            rank_A = np.linalg.matrix_rank(A)
     else: rank_A = 0
 
     print('Finding feasible solution...')
@@ -260,14 +287,30 @@ def circ_up_act_rest(mps_fn, results_dir, max_time, reset, sd_method):
                   simplex_iters=simplex_iters, solve_times=sub_times['solve'],
                   sub_times=sub_times, obj_values=obj_values)
 
-def circ_init_act_rest(mps_fn, results_dir, max_time, reset, sd_method):
-    ### Build Initial Polyhedron from file
-    print(f'Reading {mps_fn}...')
-    c, B, d, A, b = read_mps_preprocess(mps_fn)
+def circ_init_act_rest(mps_fn, results_dir, max_time, reset, sd_method, **kwargs):
+    mat_input = kwargs.get('mat_input', False)
+    A = kwargs.get('A', [])
+    B = kwargs.get('B', [])
+    b = kwargs.get('b', [])
+    d = kwargs.get('d', [])
+    c = kwargs.get('c', [])
+
+    if mat_input == False:
+        ### Build Initial Polyhedron from file
+        print(f'Reading {mps_fn}...')
+        c, B, d, A, b = read_mps_preprocess(mps_fn)
+    else:
+        print('Using matrix input')
+
     print('Building polyhedron...')
     P = Polyhedron(B, d, A, b, c)
+
     if P.m_A != 0:
-        rank_A = np.linalg.matrix_rank(A)
+        if issparse(A):
+            u, s, vt = svds(A, k=min(A.shape)-1)
+            rank_A = np.sum(s > tol)
+        else:
+            rank_A = np.linalg.matrix_rank(A)
     else: rank_A = 0
 
     print('Finding feasible solution...')
@@ -394,14 +437,30 @@ def circ_init_act_rest(mps_fn, results_dir, max_time, reset, sd_method):
                   simplex_iters=simplex_iters, solve_times=sub_times['solve'],
                   sub_times=sub_times, obj_values=obj_values)
 
-def simp_up_act_rest(mps_fn, results_dir, max_time, reset, sd_method):
-    ### Build Initial Polyhedron from file
-    print(f'Reading {mps_fn}...')
-    c, B, d, A, b = read_mps_preprocess(mps_fn)
+def simp_up_act_rest(mps_fn, results_dir, max_time, reset, sd_method, **kwargs):
+    mat_input = kwargs.get('mat_input', False)
+    A = kwargs.get('A', [])
+    B = kwargs.get('B', [])
+    b = kwargs.get('b', [])
+    d = kwargs.get('d', [])
+    c = kwargs.get('c', [])
+
+    if mat_input == False:
+        ### Build Initial Polyhedron from file
+        print(f'Reading {mps_fn}...')
+        c, B, d, A, b = read_mps_preprocess(mps_fn)
+    else:
+        print('Using matrix input')
+
     print('Building polyhedron...')
     P = Polyhedron(B, d, A, b, c)
+
     if P.m_A != 0:
-        rank_A = np.linalg.matrix_rank(A)
+        if issparse(A):
+            u, s, vt = svds(A, k=min(A.shape)-1)
+            rank_A = np.sum(s > tol)
+        else:
+            rank_A = np.linalg.matrix_rank(A)
     else: rank_A = 0
 
     print('Finding feasible solution...')
@@ -539,14 +598,30 @@ def simp_up_act_rest(mps_fn, results_dir, max_time, reset, sd_method):
                   simplex_iters=simplex_iters, solve_times=sub_times['solve'],
                   sub_times=sub_times, obj_values=obj_values)
 
-def simp_init_act_rest(mps_fn, results_dir, max_time, reset, sd_method):
-    ### Build Initial Polyhedron from file
-    print(f'Reading {mps_fn}...')
-    c, B, d, A, b = read_mps_preprocess(mps_fn)
+def simp_init_act_rest(mps_fn, results_dir, max_time, reset, sd_method, **kwargs):
+    mat_input = kwargs.get('mat_input', False)
+    A = kwargs.get('A', [])
+    B = kwargs.get('B', [])
+    b = kwargs.get('b', [])
+    d = kwargs.get('d', [])
+    c = kwargs.get('c', [])
+
+    if mat_input == False:
+        ### Build Initial Polyhedron from file
+        print(f'Reading {mps_fn}...')
+        c, B, d, A, b = read_mps_preprocess(mps_fn)
+    else:
+        print('Using matrix input')
+
     print('Building polyhedron...')
     P = Polyhedron(B, d, A, b, c)
+
     if P.m_A != 0:
-        rank_A = np.linalg.matrix_rank(A)
+        if issparse(A):
+            u, s, vt = svds(A, k=min(A.shape)-1)
+            rank_A = np.sum(s > tol)
+        else:
+            rank_A = np.linalg.matrix_rank(A)
     else: rank_A = 0
 
     print('Finding feasible solution...')

@@ -18,9 +18,10 @@ def avg(x):
 
 
 class result:  
-    def __init__(self, status, switch_iter = 0, x=None, obj=None, n_iters=None, solve_time=None, iter_times=[], alg_type='simplex',
+    def __init__(self, status, x=None, obj=None, n_iters=None, solve_time=None, iter_times=[], alg_type='simplex',
                  circuits=[], steps=[], simplex_iters=[], solve_times=[], sub_times=None,
-                 obj_values=[], iter_counts=[]):
+                 obj_values=[], iter_counts=[], 
+                 step_types = [], pts_visited = [], aug_times = [], facet_times = [], simp_times = [], omegas = [], Ms = []):
         self.status = status
         # self.switch_iter = switch_iter
         self.x = x
@@ -38,6 +39,14 @@ class result:
         
         self.sub_times = sub_times
         self.obj_values = obj_values
+
+        self.step_types = step_types
+        self.pts_visited = pts_visited
+        self.aug_times = aug_times
+        self.facet_times = facet_times
+        self.simp_times = simp_times
+        self.omegas = omegas
+        self.Ms = Ms
           
     def __str__(self):
         if self.status == 1:
@@ -73,6 +82,15 @@ class result:
             results['simplex_iters'] = self.simplex_iters
             results['solve_times'] = self.solve_times
             results['sub_times'] = self.sub_times
+
+            results['step_types'] = self.step_types
+            results['pts_visited'] = self.pts_visited
+            results['aug_times'] = self.aug_times
+            results['facet_times'] = self.facet_times
+            results['simp_times'] = self.simp_times
+            results['omegas'] = self.omegas
+            results['Ms'] = self.Ms
+
             
         with open(fn, 'wb') as f:
             pickle.dump(results, f)
